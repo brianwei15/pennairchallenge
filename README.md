@@ -7,6 +7,7 @@ or just run detect_shapes_video_task2.py if you dont want a preview while it is 
 Task 3: run the command: python detect_shapes_video.py --preview
 or just run detect_shapes_video.py if you dont want a preview while it is running.
 
+Clarification: Task 2 and Task 3 are run on the same algorithm. They just have slightly different constants, so for ease of testing, I have made two different files.
 
 Task 1 Approach:
 I used detect_shapes.py to solve this task.
