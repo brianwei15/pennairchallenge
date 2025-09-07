@@ -4,10 +4,11 @@ Task 1: run detect_shapes.py
 Task 2: run the command: python detect_shapes_video_task2.py --preview 
 or just run detect_shapes_video_task2.py if you dont want a preview while it is running.
 
-Task 4: 
+Task 3: run the command: python detect_shapes_video.py --preview
+or just run detect_shapes_video.py if you dont want a preview while it is running.
+
 
 Task 1 Approach:
-
 I used detect_shapes.py to solve this task.
 
 Since I read all the challenges before attempting this one, I knew that I wanted to develop an algorithm that could generalize between all shapes and backgrounds. I saw that in later tasks, objects start to become hard to differentiate from the background, so I decided to apply a Gaussian blur on the background, and for each pixel, detemine how close it is to the average color of the background. If it is above a threshold, then it is a part of a shape. 
@@ -33,5 +34,3 @@ After implementing the tunable variables for blur and color difference threshold
 
 Video: https://www.youtube.com/watch?v=l2yLELk5nHE
 
-
-Task 4 Explanation: 
