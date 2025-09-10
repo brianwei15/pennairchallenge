@@ -95,7 +95,7 @@ def process_video_frame(
     if mog2 is not None:
         fg = mog2.apply(frame)
         # Remove shadows (value 127) and keep only strong foreground (255)
-        _, motion_mask = cv2.threshold(fg, 150, 255, cv2.THRESH_BINARY)
+        _, motion_mask = cv2.threshold(fg, 128, 255, cv2.THRESH_BINARY)
         # Clean up motion mask with morphological operations
         motion_mask = cv2.morphologyEx(motion_mask, cv2.MORPH_OPEN, essential_kernel, iterations=1)   # Remove noise
         motion_mask = cv2.morphologyEx(motion_mask, cv2.MORPH_CLOSE, essential_kernel, iterations=1)  # Fill gaps
@@ -104,6 +104,10 @@ def process_video_frame(
 
     # === MASK FUSION ===
     # Combine both detection methods: pixel is foreground if EITHER method detects it
+    # cv2.bitwise_or performs a pixel-wise logical OR operation between the two masks.
+    # For each pixel location, if either lab_mask or motion_mask is nonzero (i.e., foreground),
+    # the output combined_mask will be set to 255 (foreground) at that pixel.
+    # This merges the results so that any pixel detected by either method is included in the final mask.
     combined_mask = cv2.bitwise_or(lab_mask, motion_mask)
 
     # === CONTOUR DETECTION ===
@@ -154,10 +158,15 @@ def _pixel_to_camera_xyz(u: float, v: float, fx: float, fy: float, cx: float, cy
 
 def find_contours_with_min_area(mask: np.ndarray, min_area: int = 50, max_area: int = 150000) -> List[np.ndarray]:
 	"""Find contours with a minimum area filter to remove noise."""
+    #finds the contours of the shapes in the mask that are external (ignores holes and nested contours). 
+	#cv2.RETR_EXTERNAL is used to find the external contours only.
+	#cv2.CHAIN_APPROX_SIMPLE is used to only return the corners of the contours, saving memory, increasing efficiency
 	contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 	# Filter contours by minimum area
 	large_contours = [cnt for cnt in contours if cv2.contourArea(cnt) >= min_area and cv2.contourArea(cnt) <= max_area]
-	# Sort left-to-right for predictable order
+	# sorts the contours by the x-coordinate of the bounding rectangle of the contour
+	#cv2.boundingRect(c)[0] extracts the x-coordinate of the bounding rectangle of each contour
+	#which is used to sort them left to right.
 	large_contours.sort(key=lambda c: cv2.boundingRect(c)[0])
 	return large_contours
 
@@ -200,16 +209,26 @@ def build_foreground_mask_with_background(
 	lab = cv2.cvtColor(blurred, cv2.COLOR_BGR2LAB).astype(np.float32)
 
 	# Compute Euclidean distance from each pixel to grass background color
+	# The background_lab is a 1D array of shape (3,) representing the LAB color of the background.
+	# To subtract it from every pixel in the image (which has shape (H, W, 3)), we need to broadcast it.
+	# The reshape(1, 1, 3) turns background_lab into a (1, 1, 3) array, so that when we subtract it from
+	# the (H, W, 3) lab image, NumPy broadcasts the background color across all pixels.
 	delta = np.linalg.norm(lab - background_lab.reshape(1, 1, 3), axis=2)
 	
 	# Normalize distance values to 0-255 range for thresholding
 	delta_norm = cv2.normalize(delta, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
 
-	# Apply fixed threshold to create binary mask
+	#applies a threshold to the normalized distance to create a binary mask
+	#A mask is a binary image that where pictures where the color difference is greater 
+	# than the threshold are white, and pictures where the color difference is less than the threshold are black
 	_, mask = cv2.threshold(delta_norm, threshold, 255, cv2.THRESH_BINARY)
 
-	# Morphological operations to clean up the mask
+	#applies a "dilation", then "erosion" to the mask to fill small holes inside detected shapes and joins nearby white regions
+	#FILLS HOLES
 	mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, essential_kernel, iterations=2)  # Fill small holes
+
+    #applies a "erosion", then "dilation" to the mask to remove small blobs left in the grass.
+	#REMOVES SMALL BLOBS
 	mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, essential_kernel, iterations=1)   # Remove small noise
 
 	return mask
@@ -285,7 +304,15 @@ def annotate_video_frame(
         cv2.drawContours(annotated, [contour], -1, (0, 0, 0), thickness=4)      # Black border
         cv2.drawContours(annotated, [contour], -1, (0, 255, 255), thickness=2)  # Yellow outline
 
-        # Calculate and mark centroid
+        # This section calculates the centroid (center of mass) of the contour using image moments.
+		# cv2.moments(contour) computes spatial moments, which are essentially sums over the coordinates of the contour points.
+		# In this context, since the contour is a set of points (not a grayscale image), the "pixel value" is just 1 for each point,
+		# so the moments are not actually weighted by intensity—they are just sums over the coordinates.
+		# "m10" is the sum of all x coordinates of the contour points, and "m01" is the sum of all y coordinates.
+		# "m00" is the area (or, for a set of points, the number of points or the total "mass").
+		# The centroid's x coordinate is m10/m00 (average x), and the y coordinate is m01/m00 (average y).
+		# This is equivalent to taking the pure centroid of the shape's area, not just the average of the contour points.
+		# Using moments gives a more accurate center for filled shapes, especially if the contour encloses an area.
         moments = cv2.moments(contour)
         if moments["m00"] != 0:  # Valid contour with non-zero area
             # Compute centroid coordinates
@@ -441,7 +468,7 @@ def process_video_stream(
     # history=100: considers last 100 frames for background model
     # varThreshold=25: sensitivity to pixel changes (lower = more sensitive)
     # detectShadows=True: identifies shadows as separate class (value 127)
-    mog2 = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=25, detectShadows=True)
+    mog2 = cv2.createBackgroundSubtractorMOG2(history=500, variance=25, detectShadows=False)
     mog2.apply(first_frame)  # Initialize with first frame
 
     # === 3D CALIBRATION ===
