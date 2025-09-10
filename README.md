@@ -37,3 +37,4 @@ Video: https://www.youtube.com/watch?v=l2yLELk5nHE
 
 Task 4: Used geometry and diagrams of pinhole camera to determine the ratio between variables in the image, and their 3d counterparts. Using similar triangles, the following relationship can be derived: Z=f*R/r where f is the average of f_x and f_y (the first two diagonal elements of the intrinsic matrix), R is the radius of the circle in inches (10), and r is the radius of the circle in pixels. Because the radius of the circle does not change, the depth stays the same for all objects. The X and Y coords of the points can be derived by backprojecting a pixel (u,v) to coordinates at depth Z using intrinsics: X = (u-c_x)*Z/f_x, Y = (v-c_y)*Z/f_y, Z=Z where (c_x, c_y) is the image center.
 
+Updated Finalized Video: https://www.youtube.com/watch?v=9LbxvKb2H74
