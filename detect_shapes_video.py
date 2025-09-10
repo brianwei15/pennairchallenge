@@ -468,7 +468,7 @@ def process_video_stream(
     # history=100: considers last 100 frames for background model
     # varThreshold=25: sensitivity to pixel changes (lower = more sensitive)
     # detectShadows=True: identifies shadows as separate class (value 127)
-    mog2 = cv2.createBackgroundSubtractorMOG2(history=500, variance=25, detectShadows=False)
+    mog2 = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=25, detectShadows=False)
     mog2.apply(first_frame)  # Initialize with first frame
 
     # === 3D CALIBRATION ===
